@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Jogo Canvas</title>
+    <script src="sprits.js"></script>
+    <style>
+        canvas {
+            position: absolute;
+            top: 0px;
+            bottom: 0px;
+            right: 0px;
+            left: 0px;
+            margin: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        //variaveis globais
+        var canvas, context, ALTURA, LARGURA, frames = 0, maxPulos = 2, velocidade = 3, actualyState, img,
+
+
+            //Enum de estados de jogo para definir se um jogador está para jogar(playgame), está em jogo(ingame) ou perdeu o jogo(lost);
+            stateGame = {
+                PLAYGAME: 0,
+                INGAME: 1,
+                LOST: 2
+            },
+
+
+            ground = {
+                y: 550,
+                x: 0,
+                altura: 50,
+
+                updateGround: function () {
+                    this.x -= velocidade;
+                    if(this.x <= -30){
+                        this.x = 0;
+                    }
+                },
+
+                desenha: function () {
+                    spriteGround.draw(this.x, this.y);
+                    spriteGround.draw(this.x + spriteGround.largura, this.y);
+                }
+            },
+
+            playerBlock = {
+                x: 50,
+                y: 0,
+                altura: spritePersonagem.altura,
+                largura: spritePersonagem.largura,
+                gravidade: 1,
+                velocidade: 0,
+                forcaDoPulo: 20,
+                qntPulos: 0,
+
+
+                atualiza: function () {
+                    this.velocidade += this.gravidade;
+                    this.y += this.velocidade;
+
+                    if (this.y > ground.y - this.altura && actualyState != stateGame.LOST) {
+                        this.y = ground.y - this.altura;
+                        this.qntPulos = 0;
+                        this.velocidade = 0;
+                    }
+                },
+
+                pula: function () {
+                    if (this.qntPulos < maxPulos) {
+                        this.velocidade = -this.forcaDoPulo;
+                        this.qntPulos++;
+                    }
+                },
+
+                desenha: function () {
+                    spritePersonagem.draw(this.x, this.y);
+                }
+            },
+
+            obstaculos = {
+                _obs: [],
+                _sprites: [obstacule_one, obstacule_two, obstacule_three],
+                timeToInsert: 0,
+
+                insere: function () {
+                    this._obs.push({
+                        x: LARGURA,
+                        y: ground.y - Math.floor(20 + Math.random() * 80),
+                        //largura: 30 + Math.floor(21 * Math.random()),
+                        //altura: 30 + Math.floor(120 * Math.random()),
+                        sprite: this._sprites[Math.floor(this._sprites.length * Math.random())]
+                        //define uma altura + uma cor dentro do array + uma largura aleatoria a nosso obstaculo utilizando biblioteca math;
+                    })
+                    //tempo para inserir um novo obstaculo na cena, math.floor(numero a ser somado * Math.random()) -> função retorna um numero randomico do tipo int para ser somado ao valor de tempo 60;
+                    this.timeToInsert = 60 + Math.floor(21 + Math.random());
+
+                },
+
+                atualiza: function () {
+
+                    if (this.timeToInsert == 0)
+                        this.insere();
+
+                    else
+                        this.timeToInsert--;
+
+                    for (let index = 0, tam = this._obs.length; index < tam; index++) {
+                        var obs = this._obs[index];
+                        obs.x -= velocidade
+
+
+                        //Verificação de colisão
+                        if (playerBlock.x < obs.x + obs.x && playerBlock.x + playerBlock.largura > obs.x && playerBlock.y + playerBlock.altura >= obs.y) {
+                            //Para verificar colisão pegamos a largura do nosso playerBlock(x),
+                            //Verificamos se a largura do player é maior que a largura do nosso objeto, caso seja maior que a largura do objeto não é dado como uma colisão
+                            //Caso seja menor que a metáde da larguro do objeto a colisão é considerada como verdadeira fazendo com que nosso player perca o jogo.  
+                            actualyState = stateGame.LOST;
+                        }
+
+                        if (obs.x <= -obs.largura) {
+                            //Nessa if verificamos quando um obstaculo saiu de fora da cena, ao sair retiramos ele do array para não gerar peso ao jogo;
+                            //ao deletar da array diminuimos seu tamanho e diminuimos seu index(i) para nosso for não forma um loop;
+                            this._obs.splice(index, 1);
+                            tam--;
+                            index--;
+
+                        }
+
+                    }
+                },
+
+                clear: function () {
+                    this._obs = [];
+                },
+                desenha: function () {
+                    for (var i = 0, tam = this._obs.length; i < tam; i++) {
+                        var obs = this._obs[i];
+                        obs.sprite.draw(obs.x, obs.y);
+                    }
+                }
+            };
+
+        function main() {
+            ALTURA = window.innerHeight;
+            LARGURA = window.innerWidth;
+
+            if (LARGURA >= 500) {
+                ALTURA = 600;
+                LARGURA = 600;
+            }
+
+            canvas = document.createElement("canvas");
+            canvas.width = LARGURA;
+            canvas.height = ALTURA;
+            canvas.style.border = "1px solid #000";
+            context = canvas.getContext("2d");
+            document.body.appendChild(canvas);
+            document.addEventListener("mousedown", click);
+
+            actualyState = stateGame.PLAYGAME;
+
+            img = new Image();
+            img.src = "assets/spriteSheet.png";
+
+            roda();
+        }
+        function click(event) {
+            if (actualyState == stateGame.INGAME) {
+                playerBlock.pula();
+            }
+            else if (actualyState == stateGame.PLAYGAME) {
+                actualyState = stateGame.INGAME;
+            } else if (actualyState == stateGame.LOST) {
+                actualyState = stateGame.PLAYGAME;
+                playerBlock.velocidade = 0;
+            }
+        }
+        function roda() {
+            atualiza();
+            desenha();
+
+            window.requestAnimationFrame(roda);
+        }
+        function atualiza() {
+            frames++;
+            playerBlock.atualiza();
+
+            if (actualyState == stateGame.INGAME) {
+                obstaculos.atualiza();
+                ground.updateGround();
+            } else if (actualyState == stateGame.LOST) {
+                obstaculos.clear();
+            }
+        }
+        function desenha() {
+            //context.fillStyle = "#50beff";
+            //context.fillRect(0, 0, LARGURA, ALTURA);
+            bg.draw(0, 0);
+            if (actualyState == stateGame.PLAYGAME) {
+
+                playGame.draw(LARGURA / 2 - playGame.largura / 2, ALTURA / 2 - playGame.altura / 2);
+            } else if (actualyState == stateGame.LOST) {
+                loseGame.draw(LARGURA / 2 - loseGame.largura / 2, ALTURA / 2 - loseGame.altura / 2);
+            } else if (actualyState == stateGame.INGAME) {
+                obstaculos.desenha();
+            }
+            ground.desenha();
+            playerBlock.desenha();
+        }
+
+        main();
+    </script>
+</body>
+
+</html>
